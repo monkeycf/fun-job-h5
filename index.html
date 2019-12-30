@@ -1,0 +1,190 @@
+<html>
+<head>
+  <meta content="text/html; charset=utf-8" http-equiv="content-type">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+  <title>js调用java</title>
+  <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    svg {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9;
+    }
+
+    .div-content {
+      position: absolute;
+      z-index: 9999;
+      top: 40%;
+      left: 0;
+      right: 0;
+      width: 100%;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="div-content">
+  <h1 id="text1" style="color: white;"></h1>
+  <button type="button" class="btn btn-danger" id="enter" onclick="testClick();">结束学习</button>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" version="1.1">
+  <rect x="0" width="1000" height="500" stroke-width="4"/>
+</svg>
+<div style="position: absolute;bottom: 1em;z-index: 99999;width: 100%;text-align: center">
+  <div><a href="http://www.beian.miit.gov.cn" target="_blank" style="color: white">浙ICP备18050134号</a></div>
+</div>
+
+<script>
+  const getQueryString = (name) => {
+    let reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+    let r = window.location.search.substr(1).match(reg);
+    if (r !== null) return decodeURIComponent(r[2]);
+    return null;
+  }
+
+  document.getElementById("text1").innerText = getQueryString("title")
+
+  //发送消息给安卓
+  function testClick() {
+    let data = document.getElementById("text1").innerText;
+    //调用java中的方法   submitFromWeb是方法名
+    window.WebViewJavascriptBridge.callHandler(
+      'submitFromWeb'
+      , {'param': data}
+      , function (responseData) {
+        alert(responseData)
+      }
+    );
+  }
+
+  //注册事件监听
+  function connectWebViewJavascriptBridge(callback) {
+    if (window.WebViewJavascriptBridge) {
+      callback(WebViewJavascriptBridge)
+    } else {
+      document.addEventListener(
+        'WebViewJavascriptBridgeReady'
+        , function () {
+          callback(WebViewJavascriptBridge)
+        },
+        false
+      );
+    }
+  }
+
+  //注册回调函数，第一次连接时调用 初始化函数
+  connectWebViewJavascriptBridge(function (bridge) {
+    //初始化
+    bridge.init(function (message, responseCallback) {
+      var data = {
+        'Javascript Responds': 'Wee!'
+      };
+      responseCallback(data);
+    });
+
+    //接收安卓发来的消息   并返回给安卓通知
+    bridge.registerHandler("functionInJs", function (data, responseCallback) {
+      alert(data);
+      var responseData = "我接受到了安卓的调用";
+      responseCallback(responseData);
+    });
+  })
+
+  const svgNs = "http://www.w3.org/2000/svg";
+  let svg;
+  let rectM
+  let w;
+  let h;
+
+  function getSectorPath(x, y, r) {
+    const turns = Math.floor(Math.random() * 4);
+    const angle = turns * Math.PI / 2;
+    const cr = r;
+    const angleWidth = Math.PI / 2;
+    if (turns === 0) {
+      x -= r / 2;
+      y += r / 2;
+    } else if (turns === 1) {
+      x += r / 2;
+      y += r / 2;
+    } else if (turns === 2) {
+      x += r / 2;
+      y -= r / 2;
+    } else if (turns === 3) {
+      x -= r / 2;
+      y -= r / 2;
+    }
+
+    const cx1 = Math.cos(angleWidth + angle) * cr + x;
+    const cy1 = -Math.sin(angleWidth + angle) * cr + y;
+    const cx2 = Math.cos(angle) * cr + x;
+    const cy2 = -Math.sin(angle) * cr + y;
+
+    return `M${x} ${y} ${cx1} ${cy1} A${cr} ${cr} 0 0 1 ${cx2} ${cy2}Z`;
+  }
+
+  function createPathElement(x, y, r, baseHue) {
+    let path = getSectorPath(x, y, r);
+    let pathElement = document.createElementNS(svgNs, "path");
+    pathElement.setAttribute("d", path);
+    let hue = Math.random() * 40 + baseHue;
+    let color = `hsl(${hue}, 100%, 50%)`;
+    pathElement.setAttribute("fill", color);
+    return pathElement;
+  }
+
+  function drawCircleSectors(groupElement) {
+    let size = Math.round(Math.random() * 80) + 20;
+    let baseHue = Math.random() * 360;
+    let color = `hsl(${baseHue}, 70%, 30%)`;
+    rect.setAttribute("fill", color);
+    for (let x = size / 2; x < w + size; x += size) {
+      for (let y = size / 2; y < h + size; y += size) {
+        let path = createPathElement(x, y, size, baseHue);
+        groupElement.appendChild(path);
+      }
+    }
+  }
+
+  function setup() {
+    svg = document.querySelector("svg");
+    rect = document.querySelector("rect");
+    document.addEventListener("click", draw);
+    window.addEventListener("resize", onResize);
+    onResize();
+  }
+
+  function onResize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    rect.setAttribute("width", w);
+    rect.setAttribute("height", h);
+    draw();
+  }
+
+  function draw() {
+    let group = document.querySelector("g");
+    if (group) {
+      group.remove();
+    }
+    group = document.createElementNS(svgNs, "g");
+
+    drawCircleSectors(group);
+    svg.appendChild(group);
+  }
+
+  setup();
+
+</script>
+
+</body>
+</html>
